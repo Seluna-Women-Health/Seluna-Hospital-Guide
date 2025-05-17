@@ -22,6 +22,7 @@ class SimulationStep(BaseModel):
     tips: List[str]
     image_url: Optional[str] = None
     audio_url: Optional[str] = None
+    video_url: Optional[str] = None
     dialog_pairs: List[DialogPair] = []
     illustration: Optional[str] = None
 
@@ -138,84 +139,84 @@ BASE_SIMULATION_STEPS = [
         "id": "arrival",
         "title": "Arriving at the Clinic",
         "description": "What to expect when you arrive at the gynecological clinic",
-        "image_url": "/images/simulation/arrival.jpg",
+        "image_url": "/images/1_Hospital-Check-in.png",
         "illustration": "arrival.svg",
     },
     {
         "id": "check-in",
         "title": "Check-in Process",
         "description": "How to complete the check-in process at the front desk",
-        "image_url": "/images/simulation/checkin.jpg",
+        "image_url": "/images/1_Hospital-Check-in.png",
         "illustration": "checkin.svg",
     },
     {
         "id": "nurse-intake",
         "title": "Nurse Intake",
         "description": "How the nurse will collect your initial information and health history",
-        "image_url": "/images/simulation/nurse_intake.jpg",
+        "image_url": "/images/2.2_Nurse Interview Scene_with_translator2.png",
         "illustration": "nurse_intake.svg",
     },
     {
         "id": "changing-clothes",
         "title": "Changing Clothes",
         "description": "What to expect when changing into a hospital gown for examination",
-        "image_url": "/images/simulation/changing.jpg",
+        "image_url": "/images/3_Diverse-Women-Portrait.png",
         "illustration": "changing.svg",
     },
     {
         "id": "waiting-room",
         "title": "Waiting Room",
         "description": "What to do while waiting for your appointment",
-        "image_url": "/images/simulation/waiting.jpg",
+        "image_url": "/images/3_Diverse-Women-Portrait.png",
         "illustration": "waiting.svg",
     },
     {
         "id": "doctor-enters",
         "title": "Doctor Enters",
         "description": "What happens when the doctor comes to see you",
-        "image_url": "/images/simulation/doctor_enters.jpg",
+        "image_url": "/images/3_Diverse-Women-Portrait.png",
         "illustration": "doctor_enters.svg",
     },
     {
         "id": "blood-test",
         "title": "Blood Test",
         "description": "What to expect during a blood test procedure",
-        "image_url": "/images/simulation/blood_test.jpg",
+        "image_url": "/images/3_Diverse-Women-Portrait.png",
         "illustration": "blood_test.svg",
     },
     {
         "id": "pelvic-exam",
         "title": "Pelvic Exam",
         "description": "What happens during a pelvic examination (optional, skippable)",
-        "image_url": "/images/simulation/pelvic_exam.jpg",
+        "video_url": "/videos/Ultrasound_Examination_storyboard.mp4",
         "illustration": "pelvic_exam.svg",
     },
     {
         "id": "test-results",
         "title": "Test Results",
         "description": "How test results are shared and explained",
-        "image_url": "/images/simulation/test_results.jpg",
+        "image_url": "/images/3_Diverse-Women-Portrait.png",
         "illustration": "test_results.svg",
     },
     {
         "id": "pharmacy-info",
         "title": "Pharmacy Information",
         "description": "Understanding prescriptions and pharmacy instructions",
-        "image_url": "/images/simulation/pharmacy.jpg",
+        "image_url": "/images/3_Diverse-Women-Portrait.png",
         "illustration": "pharmacy.svg",
     },
     {
         "id": "what-to-bring",
         "title": "What to Bring",
         "description": "Items to bring for future appointments",
-        "image_url": "/images/simulation/what_to_bring.jpg",
+        "image_url": "/images/3_Diverse-Women-Portrait.png",
         "illustration": "what_to_bring.svg",
     },
     {
         "id": "closing",
         "title": "Closing Encouragement",
         "description": "Final tips and encouragement for your healthcare journey",
-        "image_url": "/images/simulation/closing.jpg",
+        "image_url": "/images/3_Diverse-Women-Portrait.png",
         "illustration": "closing.svg",
     },
 ]

@@ -78,9 +78,13 @@ const HospitalVisitSimulation = () => {
       // Update our loaded steps content
       const newLoadedContent = { ...loadedStepsContent };
       response.data.forEach(stepWithContent => {
+        // FIXED: Store the dialogue and tips without losing other properties from the step
         newLoadedContent[stepWithContent.id] = {
           dialogPairs: stepWithContent.dialog_pairs || [],
-          tips: stepWithContent.tips || []
+          tips: stepWithContent.tips || [],
+          // Now also preserve video_url from the original step data
+          videoUrl: stepWithContent.video_url,
+          imageUrl: stepWithContent.image_url
         };
         
         // Remove from loading set
@@ -157,37 +161,44 @@ const HospitalVisitSimulation = () => {
     }
   };
   
-  const getStepContent = (stepIndex) => {
-    const stepId = allSteps[stepIndex]?.id;
+  const getCurrentStepData = () => {
+    if (allSteps.length === 0 || step <= 0 || step > allSteps.length) {
+      return { title: "Loading...", description: "" };
+    }
+    return allSteps[step - 1];
+  };
+  
+  const getCurrentStepContent = () => {
+    const stepId = allSteps[step - 1]?.id;
     if (!stepId || !loadedStepsContent[stepId]) {
-      return {
-        dialogPairs: [{ doctor_dialog: "", user_guidance: "" }],
-        tips: []
-      };
+      return { dialogPairs: [], tips: [] };
     }
     return loadedStepsContent[stepId];
   };
   
-  const getCurrentStepContent = () => {
-    return getStepContent(step - 1);
-  };
+  // Combine to get complete content
+  const currentStepData = getCurrentStepData();
+  const currentStepContent = getCurrentStepContent();
   
-  const currentStepData = allSteps[step - 1] || { 
-    title: "Loading...",
-    description: "" 
-  };
-  
+  // Create a merged content object
   const currentContent = {
-    title: currentStepData.title,
-    introduction: currentStepData.description,
-    illustration: currentStepData.illustration || "default.svg",
-    ...getCurrentStepContent()
+    title: currentStepData.title || "Loading...",
+    description: currentStepData.description || "",
+    dialogPairs: currentStepContent.dialogPairs || [],
+    tips: currentStepContent.tips || [],
+    videoUrl: currentStepContent.videoUrl || currentStepData.video_url,
+    imageUrl: currentStepContent.imageUrl || currentStepData.image_url
   };
   
   const currentDialog = currentContent.dialogPairs[currentDialogIndex] || {
     doctor_dialog: "",
     user_guidance: ""
   };
+
+  // For debugging
+  console.log("Current step data:", currentStepData);
+  console.log("Current step content:", currentStepContent);
+  console.log("Combined content:", currentContent);
 
   if (initialLoading) {
     return <div className="flex justify-center items-center h-screen">
@@ -272,143 +283,100 @@ const HospitalVisitSimulation = () => {
           </div>
           
           <div className="p-8">
-            <p className="text-lg text-gray-700 mb-8 max-w-4xl mx-auto">{currentContent.introduction}</p>
+            <p className="text-lg text-gray-700 mb-8 max-w-4xl mx-auto">{currentContent.description}</p>
             
-            <div className="grid grid-cols-1 lg:grid-cols-10 gap-12">
-              <div className="lg:col-span-6 relative h-[550px] bg-gradient-to-b from-indigo-50 to-purple-50 rounded-xl p-8 border border-indigo-100">
-                {/* Add dialog navigation indicators and controls */}
-                {currentContent.dialogPairs && currentContent.dialogPairs.length > 1 && (
-                  <div className="absolute top-4 right-4 z-30 flex items-center bg-white px-3 py-1 rounded-full shadow-md">
-                    <span className="text-sm text-gray-600 mr-2">
+            <div className="grid grid-cols-1 lg:grid-cols-10 gap-8">
+              {/* Chat section - now 4 columns instead of 6 */}
+              <div className="lg:col-span-4 flex flex-col">
+                <div className="bg-gray-50 rounded-xl border border-gray-200 shadow-sm h-full flex flex-col overflow-hidden">
+                  {/* Dialog counter */}
+                  <div className="bg-white py-3 px-4 border-b border-gray-200 flex justify-between items-center">
+                    <span className="text-sm font-medium text-gray-500">
                       Dialog {currentDialogIndex + 1} of {currentContent.dialogPairs.length}
                     </span>
-                  </div>
-                )}
-                
-                {/* Left arrow navigation */}
-                {currentContent.dialogPairs && currentContent.dialogPairs.length > 1 && currentDialogIndex > 0 && (
-                  <motion.button
-                    className="absolute left-4 top-1/2 -translate-y-1/2 z-30 bg-white w-10 h-10 rounded-full shadow-md flex items-center justify-center border border-gray-200 text-indigo-600 hover:bg-indigo-50"
-                    onClick={prevDialog}
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.95 }}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                    </svg>
-                  </motion.button>
-                )}
-                
-                {/* Right arrow navigation */}
-                {currentContent.dialogPairs && currentContent.dialogPairs.length > 1 && 
-                 currentDialogIndex < currentContent.dialogPairs.length - 1 && (
-                  <motion.button
-                    className="absolute right-4 top-1/2 -translate-y-1/2 z-30 bg-white w-10 h-10 rounded-full shadow-md flex items-center justify-center border border-gray-200 text-indigo-600 hover:bg-indigo-50"
-                    onClick={nextDialog}
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.95 }}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </motion.button>
-                )}
-
-                <motion.div 
-                  className="absolute left-6 top-12 z-10"
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.5, delay: 0.3 }}
-                >
-                  <div className="w-28 h-40 bg-white rounded-xl shadow-lg border-2 border-indigo-200 flex items-center justify-center overflow-hidden">
-                    <div className="text-5xl">👩‍⚕️</div>
-                  </div>
-                  
-                  <div className="bg-indigo-500 text-white text-center py-1 px-3 rounded-md mt-2 text-sm font-medium shadow-sm">
-                    Dr. Sarah
-                  </div>
-                </motion.div>
-                
-                <motion.div 
-                  className="absolute left-36 right-36 top-12 z-20"
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 0.4, delay: 0.5 }}
-                  layout
-                  key={`doctor-dialog-${step}`}
-                >
-                  <div className="bg-white p-5 rounded-xl shadow-md border-2 border-indigo-200 text-indigo-800 text-base relative">
-                    {currentDialog.doctor_dialog}
-                    <div className="absolute w-5 h-5 bg-white border-b-2 border-l-2 border-indigo-200 transform rotate-45 -left-3 top-6"></div>
-                  </div>
-                </motion.div>
-                
-                <motion.div 
-                  className="absolute right-6 top-[40%] z-10"
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.5, delay: 0.7 }}
-                >
-                  <div className="w-28 h-40 bg-white rounded-xl shadow-lg border-2 border-purple-200 flex items-center justify-center overflow-hidden">
-                    <div className="text-5xl">👩</div>
-                  </div>
-                  
-                  <div className="bg-purple-500 text-white text-center py-1 px-3 rounded-md mt-2 text-sm font-medium shadow-sm">
-                    You
-                  </div>
-                </motion.div>
-                
-                <motion.div 
-                  className="absolute left-36 right-36 top-[40%] z-20"
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 0.4, delay: 0.9 }}
-                  layout
-                  key={`user-guidance-${step}`}
-                >
-                  <div className="bg-white p-5 rounded-xl shadow-md border-2 border-purple-200 text-purple-800 text-base relative">
-                    <div className="font-medium text-sm text-purple-600 mb-2 uppercase tracking-wide">YOUR RESPONSE:</div>
-                    {currentDialog.user_guidance}
-                    <div className="absolute w-5 h-5 bg-white border-t-2 border-r-2 border-purple-200 transform rotate-45 -right-3 top-6"></div>
-                  </div>
-                </motion.div>
-                
-                <motion.div 
-                  className="absolute left-8 right-8 bottom-8"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: 1.1 }}
-                  layout
-                  key={`tips-${step}`}
-                >
-                  <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200 shadow-sm">
-                    <div className="flex items-start">
-                      <div className="flex-shrink-0 bg-yellow-100 p-2 rounded-full mr-3 mt-0">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-yellow-600" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                    <div className="flex space-x-2">
+                      <button 
+                        onClick={prevDialog}
+                        disabled={currentDialogIndex === 0}
+                        className={`p-1 rounded ${currentDialogIndex === 0 ? 'text-gray-400' : 'text-indigo-600 hover:bg-indigo-50'}`}
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
                         </svg>
+                      </button>
+                      <button 
+                        onClick={nextDialog}
+                        disabled={currentDialogIndex >= currentContent.dialogPairs.length - 1}
+                        className={`p-1 rounded ${currentDialogIndex >= currentContent.dialogPairs.length - 1 ? 'text-gray-400' : 'text-indigo-600 hover:bg-indigo-50'}`}
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                  
+                  {/* Chat container */}
+                  <div className="flex-1 p-4 overflow-y-auto space-y-4">
+                    {/* Doctor message */}
+                    <div className="flex items-start">
+                      <div className="flex-shrink-0 mr-3">
+                        <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center text-lg">
+                          👩‍⚕️
+                        </div>
                       </div>
-                      <div>
-                        <h3 className="font-medium text-sm uppercase tracking-wide text-yellow-800">Pro Tip</h3>
-                        <ul className="text-yellow-700">
+                      <div className="bg-white rounded-lg p-3 shadow-sm border border-indigo-100 max-w-[85%]">
+                        <div className="text-xs text-indigo-600 font-medium mb-1">Dr. Sarah</div>
+                        <p className="text-gray-800">{currentDialog.doctor_dialog}</p>
+                      </div>
+                    </div>
+                    
+                    {/* User response */}
+                    <div className="flex items-start flex-row-reverse">
+                      <div className="flex-shrink-0 ml-3">
+                        <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center text-lg">
+                          👩
+                        </div>
+                      </div>
+                      <div className="bg-purple-50 rounded-lg p-3 shadow-sm border border-purple-100 max-w-[85%]">
+                        <div className="text-xs text-purple-600 font-medium mb-1">YOUR RESPONSE</div>
+                        <p className="text-gray-800">{currentDialog.user_guidance}</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Pro tip section */}
+                  <div className="mt-auto p-3 bg-yellow-50 border-t border-yellow-200">
+                    <div className="flex items-start">
+                      <div className="flex-shrink-0 mr-2 mt-1">
+                        <div className="bg-yellow-100 p-1 rounded-full">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-yellow-600" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                          </svg>
+                        </div>
+                      </div>
+                      <div className="text-left w-full">
+                        <h3 className="text-xs font-semibold text-yellow-800 uppercase tracking-wide">Pro Tip</h3>
+                        <ul className="text-sm text-yellow-700 space-y-1 mt-1 list-none pl-0">
                           {currentContent.tips.map((tip, index) => (
-                            <li key={index} className="mb-1">{tip}</li>
+                            <li key={index} className="text-left">{tip}</li>
                           ))}
                         </ul>
                       </div>
                     </div>
                   </div>
-                </motion.div>
+                </div>
               </div>
               
+              {/* Image/Video section - now 6 columns instead of 4 */}
               <motion.div 
-                className="lg:col-span-4 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl overflow-hidden border border-indigo-100 h-[550px] flex items-center justify-center p-8"
+                className="lg:col-span-6 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl overflow-hidden border border-indigo-100 h-[600px] flex items-center justify-center p-6"
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.5, delay: 0.4 }}
               >
                 <div className="w-full h-full bg-white rounded-lg shadow-inner flex items-center justify-center overflow-hidden">
-                  {currentStepData.image_url ? (
+                  {currentContent.imageUrl ? (
                     <motion.div
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
@@ -416,13 +384,13 @@ const HospitalVisitSimulation = () => {
                       className="w-full h-full flex flex-col items-center justify-center"
                     >
                       <img 
-                        src={currentStepData.image_url} 
+                        src={currentContent.imageUrl} 
                         alt={currentStepData.title}
-                        className="max-w-full max-h-[80%] object-contain mb-4"
+                        className="max-w-full max-h-[85%] object-contain mb-4"
                       />
-                      <p className="text-xl text-gray-500">Scene: {currentContent.title}</p>
+                      <p className="text-xl text-gray-500">Scene: {currentStepData.title}</p>
                     </motion.div>
-                  ) : currentStepData.video_url ? (
+                  ) : currentContent.videoUrl ? (
                     <motion.div
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
@@ -430,13 +398,15 @@ const HospitalVisitSimulation = () => {
                       className="w-full h-full flex flex-col items-center justify-center"
                     >
                       <video 
-                        src={currentStepData.video_url}
+                        src={currentContent.videoUrl}
                         autoPlay
                         loop
                         muted
-                        className="max-w-full max-h-[80%] object-contain mb-4"
+                        controls
+                        onError={(e) => console.error("Video error:", e)}
+                        className="max-w-full max-h-[85%] object-contain mb-4"
                       />
-                      <p className="text-xl text-gray-500">Scene: {currentContent.title}</p>
+                      <p className="text-xl text-gray-500">Scene: {currentStepData.title}</p>
                     </motion.div>
                   ) : (
                     <motion.div
@@ -446,7 +416,7 @@ const HospitalVisitSimulation = () => {
                       className="text-center"
                     >
                       <div className="text-8xl mb-6">🏥</div>
-                      <p className="text-xl text-gray-500">Scene: {currentContent.title}</p>
+                      <p className="text-xl text-gray-500">Scene: {currentStepData.title}</p>
                     </motion.div>
                   )}
                 </div>
