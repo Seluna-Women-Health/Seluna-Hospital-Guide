@@ -1,0 +1,19 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Add your custom styles below */
+body {
+  @apply bg-gray-50 text-gray-900;
+}
+
+/* Optional: Add custom styles for common components */
+@layer components {
+  .btn-primary {
+    @apply bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 px-4 rounded-full;
+  }
+  
+  .card {
+    @apply bg-white rounded-lg shadow-md p-6;
+  }
+}
