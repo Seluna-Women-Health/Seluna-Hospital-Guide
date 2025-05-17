@@ -465,13 +465,11 @@ const VoiceSymptomChecker = () => {
           </div>
           <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="flex flex-col">
-              <h3 className="text-lg font-semibold text-purple-700 mb-4">Pain Visualization</h3>
               <div className="flex-grow">
                 <PainVisualizer painAreas={currentSymptoms.pain_areas} />
               </div>
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-purple-700 mb-4">Summary</h3>
               <SymptomSummary symptoms={currentSymptoms} hideCompleteness={false}/>
             </div>
           </div>

@@ -17,6 +17,27 @@ const SymptomSummary = ({
     console.log("SymptomSummary received data:", symptoms);
   }, [symptoms]);
 
+  // Check if we're in a completely empty state
+  const isCompletelyEmpty = (
+    (!symptoms.pain_areas || symptoms.pain_areas.length === 0) &&
+    (!symptoms.main_symptoms || symptoms.main_symptoms.length === 0) &&
+    (!symptoms.additional_symptoms || symptoms.additional_symptoms.length === 0) &&
+    !symptoms.emotional_state &&
+    (!symptoms.completeness_score || symptoms.completeness_score === 0)
+  );
+  
+  // Simple empty state display
+  if (isCompletelyEmpty) {
+    return (
+      <div className="bg-purple-50 rounded-lg p-6 h-full flex flex-col items-center justify-center text-center">
+        <h3 className="text-xl font-semibold text-purple-600 mb-2">Symptom Summary</h3>
+        <p className="text-gray-500">
+          Your symptoms will appear here as you describe them
+        </p>
+      </div>
+    );
+  }
+
   // Helper function to capitalize first letter
   const capitalize = (string) => {
     if (!string) return '';
