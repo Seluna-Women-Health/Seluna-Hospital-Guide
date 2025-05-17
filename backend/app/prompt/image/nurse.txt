@@ -1,2 +1,3 @@
-Please generate a scene where a female patient in her 60s at the checkin desk in a hospital. 
-Use the porvided image as Style guideline.
+Please generate a scene where a nurse is conducting an interview questions with a black female patient in her 20s.
+The background is a medical examination room 
+Use the provided image as Style guideline.
