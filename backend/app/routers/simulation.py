@@ -54,6 +54,8 @@ async def generate_dialog_with_llm(step_id: str, step_title: str, step_descripti
         symptom_context = f"The patient is experiencing {main_symptoms}{location}{pain_desc}{duration}. "
         if symptom_data.additional_notes:
             symptom_context += f"Additional context: {symptom_data.additional_notes}"
+            
+    print("symptom context: ", symptom_context)
     
     # Construct prompt based on the current step
     prompt = f"""

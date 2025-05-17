@@ -57,6 +57,26 @@ const SymptomSummaryPage = () => {
     );
   }
 
+  const startHospitalSimulation = () => {
+    // Make sure we have the symptom data properly formatted
+    const symptomDataForSimulation = {
+      selectedSymptoms: formattedSymptoms.main_symptoms,
+      painLevel: visualization.intensity,
+      painLocation: formattedSymptoms.pain_areas.map(area => area.area),
+      duration: null,
+      additionalNotes: null
+    };
+    
+    console.log("Passing symptom data to simulation:", symptomDataForSimulation);
+    
+    // Navigate with the symptom data in state
+    navigate('/hospital-simulation', { 
+      state: { 
+        symptomData: symptomDataForSimulation 
+      } 
+    });
+  };
+
   return (
     <div className="container mx-auto px-4 py-8 page-transition">
       <motion.h1 
@@ -142,7 +162,7 @@ const SymptomSummaryPage = () => {
           <div className="p-6">
             <RecommendationPanel 
               symptoms={formattedSymptoms}
-              onPrepareForClinic={handlePrepareForClinic} 
+              onPrepareForClinic={startHospitalSimulation} 
             />
           </div>
         </motion.div>

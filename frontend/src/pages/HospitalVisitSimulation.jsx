@@ -46,6 +46,11 @@ const HospitalVisitSimulation = () => {
     fetchStepStructure();
   }, []); // Empty dependency array ensures this only runs once
   
+  // First, let's add debugging to see what data we're receiving
+  useEffect(() => {
+    console.log("Symptom data received:", symptomData);
+  }, [symptomData]);
+  
   // Function to load content for specific steps
   const loadStepContent = useCallback(async (stepIds) => {
     try {
@@ -70,9 +75,20 @@ const HospitalVisitSimulation = () => {
       setLoading(true);
       console.log("Loading content for steps:", stepsToLoad);
       
+      // Format the symptom data properly for the backend
+      const formattedSymptomData = symptomData ? {
+        symptoms: symptomData.selectedSymptoms || [],
+        pain_level: symptomData.painLevel || null,
+        pain_location: symptomData.painLocation || null,
+        duration: symptomData.duration || null,
+        additional_notes: symptomData.additionalNotes || null
+      } : null;
+      
+      console.log("Sending symptom data to backend:", formattedSymptomData);
+      
       const response = await axios.post('/api/simulation/generate-batch', {
         step_ids: stepsToLoad,
-        symptom_data: symptomData
+        symptom_data: formattedSymptomData
       });
       
       // Update our loaded steps content
@@ -286,36 +302,9 @@ const HospitalVisitSimulation = () => {
             <p className="text-lg text-gray-700 mb-8 max-w-4xl mx-auto">{currentContent.description}</p>
             
             <div className="grid grid-cols-1 lg:grid-cols-10 gap-8">
-              {/* Chat section - now 4 columns instead of 6 */}
+              {/* Chat section - 4 columns */}
               <div className="lg:col-span-4 flex flex-col">
                 <div className="bg-gray-50 rounded-xl border border-gray-200 shadow-sm h-full flex flex-col overflow-hidden">
-                  {/* Dialog counter */}
-                  <div className="bg-white py-3 px-4 border-b border-gray-200 flex justify-between items-center">
-                    <span className="text-sm font-medium text-gray-500">
-                      Dialog {currentDialogIndex + 1} of {currentContent.dialogPairs.length}
-                    </span>
-                    <div className="flex space-x-2">
-                      <button 
-                        onClick={prevDialog}
-                        disabled={currentDialogIndex === 0}
-                        className={`p-1 rounded ${currentDialogIndex === 0 ? 'text-gray-400' : 'text-indigo-600 hover:bg-indigo-50'}`}
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
-                        </svg>
-                      </button>
-                      <button 
-                        onClick={nextDialog}
-                        disabled={currentDialogIndex >= currentContent.dialogPairs.length - 1}
-                        className={`p-1 rounded ${currentDialogIndex >= currentContent.dialogPairs.length - 1 ? 'text-gray-400' : 'text-indigo-600 hover:bg-indigo-50'}`}
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
-                        </svg>
-                      </button>
-                    </div>
-                  </div>
-                  
                   {/* Chat container */}
                   <div className="flex-1 p-4 overflow-y-auto space-y-4">
                     {/* Doctor message */}
@@ -339,30 +328,69 @@ const HospitalVisitSimulation = () => {
                         </div>
                       </div>
                       <div className="bg-purple-50 rounded-lg p-3 shadow-sm border border-purple-100 max-w-[85%]">
-                        <div className="text-xs text-purple-600 font-medium mb-1">YOUR RESPONSE</div>
+                        <div className="text-xs text-purple-600 font-medium mb-1">Your Response Instructions</div>
                         <p className="text-gray-800">{currentDialog.user_guidance}</p>
                       </div>
                     </div>
                   </div>
                   
                   {/* Pro tip section */}
-                  <div className="mt-auto p-3 bg-yellow-50 border-t border-yellow-200">
-                    <div className="flex items-start">
-                      <div className="flex-shrink-0 mr-2 mt-1">
-                        <div className="bg-yellow-100 p-1 rounded-full">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-yellow-600" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                          </svg>
+                  <div className="mt-auto">
+                    <div className="p-3 bg-yellow-50 border-t border-yellow-200">
+                      <div className="flex items-start">
+                        <div className="flex-shrink-0 mr-2 mt-1">
+                          <div className="bg-yellow-100 p-1 rounded-full">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-yellow-600" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                        </div>
+                        <div className="text-left w-full">
+                          <h3 className="text-xs font-semibold text-yellow-800 uppercase tracking-wide">Pro Tip</h3>
+                          <ul className="text-sm text-yellow-700 space-y-1 mt-1 list-none pl-0">
+                            {currentContent.tips.map((tip, index) => (
+                              <li key={index} className="text-left">{tip}</li>
+                            ))}
+                          </ul>
                         </div>
                       </div>
-                      <div className="text-left w-full">
-                        <h3 className="text-xs font-semibold text-yellow-800 uppercase tracking-wide">Pro Tip</h3>
-                        <ul className="text-sm text-yellow-700 space-y-1 mt-1 list-none pl-0">
-                          {currentContent.tips.map((tip, index) => (
-                            <li key={index} className="text-left">{tip}</li>
-                          ))}
-                        </ul>
+                    </div>
+                    
+                    {/* Dialog Navigation */}
+                    <div className="bg-indigo-50 p-3 border-t border-indigo-200 flex justify-between items-center">
+                      <button 
+                        onClick={prevDialog}
+                        disabled={currentDialogIndex === 0}
+                        className={`flex items-center py-2 px-3 rounded-md ${
+                          currentDialogIndex === 0 
+                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                            : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'
+                        }`}
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                        Previous
+                      </button>
+                      
+                      <div className="text-sm font-medium text-indigo-700 bg-indigo-100 py-1 px-3 rounded-full">
+                        Dialog {currentDialogIndex + 1} of {currentContent.dialogPairs.length}
                       </div>
+                      
+                      <button 
+                        onClick={nextDialog}
+                        disabled={currentDialogIndex >= currentContent.dialogPairs.length - 1}
+                        className={`flex items-center py-2 px-3 rounded-md ${
+                          currentDialogIndex >= currentContent.dialogPairs.length - 1 
+                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                            : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'
+                        }`}
+                      >
+                        Next
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-1" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                        </svg>
+                      </button>
                     </div>
                   </div>
                 </div>
