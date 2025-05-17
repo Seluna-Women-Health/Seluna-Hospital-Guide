@@ -1,8 +1,6 @@
 import React, { createContext, useState, useContext } from 'react';
 
-const AppContext = createContext();
-
-export const useAppContext = () => useContext(AppContext);
+const AppContext = createContext(null);
 
 export const AppProvider = ({ children }) => {
   // State for language
@@ -11,17 +9,18 @@ export const AppProvider = ({ children }) => {
   // State for symptom data
   const [symptoms, setSymptoms] = useState({
     painAreas: [],
-    painIntensity: 0,
-    painType: [],
+    mainSymptoms: [],
     additionalSymptoms: [],
-    emotionalSymptoms: []
+    emotionalState: null,
+    emotionalScale: 0,
+    completenessScore: 0
   });
   
   // State for visualization
   const [visualization, setVisualization] = useState({
-    activeAreas: [],
+    painDetails: [],
     intensity: 0,
-    emotion: null
+    emotion: '😐'
   });
   
   // State for session
@@ -29,6 +28,22 @@ export const AppProvider = ({ children }) => {
     isLoggedIn: false,
     userId: null
   });
+
+  // Update symptoms data
+  const updateSymptoms = (newSymptoms) => {
+    setSymptoms({
+      ...symptoms,
+      ...newSymptoms
+    });
+  };
+  
+  // Update visualization data
+  const updateVisualization = (newVisualization) => {
+    setVisualization({
+      ...visualization,
+      ...newVisualization
+    });
+  };
 
   const value = {
     language,
@@ -38,7 +53,9 @@ export const AppProvider = ({ children }) => {
     visualization,
     setVisualization,
     session,
-    setSession
+    setSession,
+    updateSymptoms,
+    updateVisualization
   };
 
   return (
@@ -46,4 +63,6 @@ export const AppProvider = ({ children }) => {
       {children}
     </AppContext.Provider>
   );
-}; 
+};
+
+export const useAppContext = () => useContext(AppContext); 

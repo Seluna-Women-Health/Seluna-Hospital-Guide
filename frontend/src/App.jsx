@@ -9,12 +9,12 @@ import MainLayout from './layouts/MainLayout';
 // Import pages
 import LandingPage from './pages/LandingPage';
 import VoiceSymptomChecker from './pages/VoiceSymptomChecker';
-import SymptomSummary from './pages/SymptomSummary';
 import AdditionalDetails from './pages/AdditionalDetails';
 import CulturalView from './pages/CulturalView';
 import HospitalVisitSimulation from './pages/HospitalVisitSimulation';
 import Feedback from './pages/Feedback';
 import ResourcesHub from './pages/ResourcesHub';
+import Diagnosis from './pages/Diagnosis';
 
 function App() {
   return (
@@ -24,7 +24,7 @@ function App() {
           <Route path="/" element={<MainLayout />}>
             <Route index element={<LandingPage />} />
             <Route path="symptom-checker" element={<VoiceSymptomChecker />} />
-            <Route path="summary" element={<SymptomSummary />} />
+            <Route path="diagnosis" element={<Diagnosis />} />
             <Route path="details" element={<AdditionalDetails />} />
             <Route path="cultural-view" element={<CulturalView />} />
             <Route path="hospital-simulation" element={<HospitalVisitSimulation />} />

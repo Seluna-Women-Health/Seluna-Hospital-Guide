@@ -1,24 +1,122 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import SymptomInput from '../components/symptomChecker/SymptomInput';
-import BodyVisualization from '../components/symptomChecker/BodyVisualization';
-import { FaMicrophone, FaMicrophoneSlash } from 'react-icons/fa';
+import { FaMicrophone, FaPaperPlane } from 'react-icons/fa';
+import { useAppContext } from '../contexts/AppContext';
+import PainVisualizer from '../components/symptomChecker/PainVisualizer';
+import SymptomSummary from '../components/symptomChecker/SymptomSummary';
 
 const VoiceSymptomChecker = () => {
   const navigate = useNavigate();
+  const { updateSymptoms, updateVisualization } = useAppContext();
   const [isRecording, setIsRecording] = useState(false);
-  const [conversation, setConversation] = useState([
-    { role: 'system', content: 'Hello! Please describe your symptoms. Where are you experiencing pain or discomfort?' }
-  ]);
+  const [conversation, setConversation] = useState([]);
+  const [conversationId, setConversationId] = useState(null);
+  const [inputText, setInputText] = useState('');
   const [currentSymptoms, setCurrentSymptoms] = useState({
     pain_areas: [],
     additional_symptoms: [],
-    emotional_state: null
+    emotional_state: null,
+    emotional_scale: 0,
+    completeness_score: 0
   });
+  const [loading, setLoading] = useState(true);
   
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
+  const conversationEndRef = useRef(null);
+  
+  // Initialize conversation on component mount
+  useEffect(() => {
+    const initializeConversation = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch('/api/symptoms/conversation/start', {
+          method: 'POST'
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to start conversation');
+        }
+        
+        const data = await response.json();
+        setConversationId(data.conversation_id);
+        setConversation(data.messages);
+        
+        // Map the backend symptoms data to our frontend structure
+        processSymptomData(data.symptoms);
+      } catch (error) {
+        console.error('Error initializing conversation:', error);
+        // Fallback to local initial message if server is unavailable
+        setConversation([
+          { role: 'system', content: 'Hello! Please describe your symptoms. Where are you experiencing pain or discomfort?' }
+        ]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    initializeConversation();
+  }, []);
+  
+  // Auto-scroll to the bottom of conversation
+  useEffect(() => {
+    if (conversationEndRef.current) {
+      // Add a small delay to ensure DOM updates are complete
+      setTimeout(() => {
+        conversationEndRef.current.scrollIntoView({ 
+          behavior: 'smooth',
+          block: 'end'
+        });
+      }, 100);
+    }
+  }, [conversation]);
+  
+  // Process symptoms data from backend to match frontend expectations
+  const processSymptomData = (backendSymptoms) => {
+    if (!backendSymptoms) {
+      console.log("No symptoms data received from backend");
+      return;
+    }
+    
+    console.log("Raw backend symptoms:", backendSymptoms);
+    console.log("Main symptoms from backend:", backendSymptoms.main_symptoms);
+    console.log("Additional symptoms from backend:", backendSymptoms.additional_symptoms);
+    
+    // Create a formatted symptoms object that matches our frontend structure
+    const formattedSymptoms = {
+      // Always ensure pain_areas is an array
+      pain_areas: Array.isArray(backendSymptoms.pain_areas) 
+        ? backendSymptoms.pain_areas 
+        : [],
+      
+      // Get main_symptoms array, with fallbacks
+      main_symptoms: Array.isArray(backendSymptoms.main_symptoms)
+        ? backendSymptoms.main_symptoms
+        : [],
+      
+      // Get additional_symptoms array, with fallbacks for legacy "symptoms" field 
+      additional_symptoms: Array.isArray(backendSymptoms.additional_symptoms) 
+        ? backendSymptoms.additional_symptoms 
+        : (Array.isArray(backendSymptoms.symptoms) 
+            ? backendSymptoms.symptoms 
+            : []),
+      
+      // Copy emotional state and scale
+      emotional_state: backendSymptoms.emotional_state || null,
+      emotional_scale: backendSymptoms.emotional_scale !== undefined 
+        ? Number(backendSymptoms.emotional_scale) 
+        : 0,
+      
+      // Make absolutely sure completeness_score is set
+      completeness_score: backendSymptoms.completeness_score !== undefined 
+        ? Number(backendSymptoms.completeness_score)
+        : 0
+    };
+    
+    console.log("Final formatted symptoms for frontend:", formattedSymptoms);
+    setCurrentSymptoms(formattedSymptoms);
+  };
   
   // Function to start recording
   const startRecording = async () => {
@@ -77,67 +175,181 @@ const VoiceSymptomChecker = () => {
       
       const transcriptData = await transcriptResponse.json();
       
-      // Add user message to conversation
-      const updatedConversation = [...conversation, { role: 'user', content: transcriptData.text }];
-      setConversation(updatedConversation);
+      // Send the text to the conversation endpoint
+      await sendMessageToBackend(transcriptData.text);
       
-      // Send to conversation endpoint to get guided response
-        const conversationResponse = await fetch('/api/symptoms/conversation', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          conversation: updatedConversation,
-          current_symptoms: currentSymptoms
-        }),
-      });
-      
-      if (!conversationResponse.ok) {
-        throw new Error('Failed to process conversation');
-      }
-      
-      const conversationData = await conversationResponse.json();
-      
-      // Update conversation with system response
-      setConversation([...updatedConversation, { role: 'system', content: conversationData.response }]);
-      
-      // Update symptom data if available
-      if (conversationData.updated_symptoms) {
-        setCurrentSymptoms(conversationData.updated_symptoms);
-      }
-      
-      // Convert system response to speech
-      const speechResponse = await fetch('/api/speech/text-to-speech', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          text: conversationData.response,
-          language: 'en',
-          voice_type: 'female'
-        }),
-      });
-      
-      if (!speechResponse.ok) {
-        throw new Error('Text to speech conversion failed');
-      }
-      
-      const speechData = await speechResponse.json();
-      
-      // Play audio response
-      const audio = new Audio(`data:audio/mp3;base64,${speechData.audio_data}`);
-      audio.play();
-      
+      // Text-to-speech for the response can be handled optionally
+      // ...
     } catch (error) {
       console.error("Error processing audio:", error);
-      setConversation([...conversation, { role: 'system', content: "I'm sorry, I couldn't process that. Could you try again?" }]);
     }
   };
   
+  // Function to send a text message to backend
+  const sendMessageToBackend = async (messageText) => {
+    if (!conversationId) {
+      console.error("No conversation ID available");
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      const response = await fetch(`/api/symptoms/message`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          conversation_id: conversationId,
+          content: messageText
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to send message');
+      }
+      
+      const data = await response.json();
+      setConversation(data.messages);
+      
+      // Process the symptoms data
+      processSymptomData(data.symptoms);
+      
+      // Optional: Convert the latest system response to speech
+      const latestMessage = data.messages[data.messages.length - 1];
+      if (latestMessage.role === 'system') {
+        const speechResponse = await fetch('/api/speech/text-to-speech', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            text: latestMessage.content,
+            language: 'en',
+            voice_type: 'female'
+          }),
+        });
+        
+        if (speechResponse.ok) {
+          const speechData = await speechResponse.json();
+          // Play audio response
+          const audio = new Audio(`data:audio/mp3;base64,${speechData.audio_data}`);
+          audio.play();
+        }
+      }
+    } catch (error) {
+      console.error('Error sending message:', error);
+      // Handle error (maybe add a user-friendly error message)
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // Function to handle navigation to the diagnosis page
   const handleContinue = () => {
-    navigate('/summary');
+    // First, store all the symptom data in the global context
+    updateSymptoms({
+      painAreas: currentSymptoms.pain_areas.map(area => area.area || area),
+      mainSymptoms: currentSymptoms.main_symptoms || [],
+      additionalSymptoms: currentSymptoms.additional_symptoms || [],
+      emotionalState: currentSymptoms.emotional_state,
+      emotionalScale: currentSymptoms.emotional_scale,
+      completenessScore: currentSymptoms.completeness_score
+    });
+    
+    // Prepare visualization data based on pain areas
+    const visualizationData = {
+      painDetails: currentSymptoms.pain_areas.map(area => {
+        // If area is already an object with properties, use those
+        if (typeof area === 'object' && area !== null) {
+          return {
+            area: area.area,
+            intensity: area.intensity || 5,
+            frequency: area.frequency || 'sometimes',
+            description: area.description || 'dull'
+          };
+        }
+        // Otherwise create a default object with the area name
+        return {
+          area: area,
+          intensity: 5,
+          frequency: 'sometimes',
+          description: 'dull'
+        };
+      }),
+      intensity: currentSymptoms.pain_areas.length > 0 
+        ? Math.min(Math.max(
+            // Calculate average intensity, or default to 5
+            currentSymptoms.pain_areas.reduce((sum, area) => 
+              sum + (typeof area === 'object' ? (area.intensity || 5) : 5), 0) / 
+              Math.max(currentSymptoms.pain_areas.length, 1),
+            1), 10)
+        : 0,
+      emotion: currentSymptoms.emotional_state ? '😐' : '😐'
+    };
+    
+    // Update visualization in global context
+    updateVisualization(visualizationData);
+    
+    // Then navigate to the diagnosis page
+    navigate('/diagnosis');
+  };
+
+  // Handle text input submission
+  const handleSubmitText = async () => {
+    if (!inputText.trim()) return;
+    
+    // Store the message locally first (for immediate feedback)
+    const messageText = inputText;
+    setInputText('');
+    
+    // Send to backend
+    await sendMessageToBackend(messageText);
+  };
+
+  // If you have any functions that fetch conversation data directly
+  const fetchConversationData = async () => {
+    if (!conversationId) {
+      console.error("No conversation ID available");
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      const response = await fetch(`/api/symptoms/conversation?conversation_id=${conversationId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch conversation data');
+      }
+      
+      const data = await response.json();
+      setConversation(data.messages);
+      processSymptomData(data.symptoms);
+    } catch (error) {
+      console.error('Error fetching conversation data:', error);
+      // Handle error
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Add this function to your component
+  const addTestData = () => {
+    setCurrentSymptoms({
+      pain_areas: [
+        {area: "pelvis", intensity: 7, frequency: "often", description: "sharp"},
+        {area: "head", intensity: 4, frequency: "sometimes", description: "dull"}
+      ],
+      additional_symptoms: ["bloating", "irregular periods", "fatigue"],
+      emotional_state: "anxious",
+      emotional_scale: 6,
+      completeness_score: 70
+    });
   };
 
   return (
@@ -151,9 +363,9 @@ const VoiceSymptomChecker = () => {
         Symptom Checker
       </motion.h1>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         <motion.div 
-          className="bg-white rounded-2xl shadow-lg overflow-hidden border border-purple-100"
+          className="bg-white rounded-2xl shadow-lg overflow-hidden border border-purple-100 flex flex-col md:col-span-1"
           initial={{ opacity: 0, x: -30 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.6, delay: 0.1 }}
@@ -161,69 +373,97 @@ const VoiceSymptomChecker = () => {
           <div className="bg-gradient-to-r from-purple-500 to-pink-500 py-4 px-6">
             <h2 className="text-xl font-semibold text-white">Tell us about your symptoms</h2>
           </div>
-          <div className="p-6">
-            <div className="conversation-container h-64 overflow-y-auto mb-4 p-4 bg-gray-50 rounded-lg">
-              {conversation.map((message, index) => (
-                <div 
-                  key={index} 
-                  className={`mb-3 p-3 rounded-lg ${
-                    message.role === 'system' 
-                      ? 'bg-purple-100 text-purple-800' 
-                      : 'bg-pink-100 text-pink-800 ml-auto'
-                  } max-w-3/4`}
-                >
-                  {message.content}
+          
+          <div className="flex-grow p-6 flex flex-col">
+            <div className="conversation-container h-[400px] overflow-y-auto mb-4 rounded-lg bg-gray-50 p-4 scrollbar-thin scrollbar-thumb-purple-300 scrollbar-track-gray-100">
+              {loading && conversation.length === 0 ? (
+                <div className="flex justify-center items-center h-full">
+                  <div className="animate-pulse text-purple-500">Loading conversation...</div>
                 </div>
-              ))}
+              ) : (
+                <>
+                  {conversation.map((message, index) => (
+                    <div 
+                      key={index} 
+                      className={`max-w-[80%] mb-3 p-3 rounded-lg ${
+                        message.role === 'system' 
+                          ? 'bg-purple-100 text-purple-800 ml-2' 
+                          : 'bg-pink-100 text-pink-800 ml-auto mr-2'
+                      }`}
+                    >
+                      {message.content}
+                    </div>
+                  ))}
+                  <div ref={conversationEndRef} className="h-1" />
+                </>
+              )}
             </div>
             
-            <div className="flex justify-center mt-4">
+            <div className="mt-auto flex flex-col items-center justify-center">
               <button
                 onClick={isRecording ? stopRecording : startRecording}
-                className={`${
-                  isRecording 
-                    ? 'bg-red-500 hover:bg-red-600' 
+                disabled={loading}
+                className={`w-12 h-12 rounded-full flex items-center justify-center 
+                  ${isRecording 
+                    ? 'bg-gradient-to-r from-red-500 to-red-600' 
                     : 'bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600'
-                } text-white font-bold p-4 rounded-full shadow-lg transition-all duration-300`}
+                  } text-white transition-all duration-300 shadow-lg transform hover:scale-105 ${
+                    loading ? 'opacity-50 cursor-not-allowed' : ''
+                  }`}
               >
-                {isRecording ? <FaMicrophoneSlash size={24} /> : <FaMicrophone size={24} />}
+                <FaMicrophone size={20} className={isRecording ? 'animate-pulse' : ''} />
               </button>
+              
+              {isRecording && (
+                <span className="mt-2 text-red-500 animate-pulse text-center">
+                  Recording...
+                </span>
+              )}
             </div>
-            
-            <div className="mt-4">
-              <SymptomInput symptoms={currentSymptoms} setSymptoms={setCurrentSymptoms} />
-            </div>
+          </div>
+          
+          <div className="p-4 border-t border-gray-200">
+            <button 
+              onClick={handleContinue}
+              className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-bold py-3 px-4 rounded-lg shadow transition-all duration-300 transform hover:-translate-y-1"
+            >
+              Estimate Diagnosis
+            </button>
           </div>
         </motion.div>
         
         <motion.div 
-          className="bg-white rounded-2xl shadow-lg overflow-hidden border border-purple-100"
+          className="bg-white rounded-2xl shadow-lg overflow-hidden border border-purple-100 md:col-span-2"
           initial={{ opacity: 0, x: 30 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.6, delay: 0.1 }}
         >
           <div className="bg-gradient-to-r from-pink-500 to-purple-500 py-4 px-6">
-            <h2 className="text-xl font-semibold text-white">Pain Visualization</h2>
+            <h2 className="text-xl font-semibold text-white">Symptoms Analysis</h2>
           </div>
-          <div className="p-6">
-            <BodyVisualization painAreas={currentSymptoms.pain_areas} />
+          <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="flex flex-col">
+              <h3 className="text-lg font-semibold text-purple-700 mb-4">Pain Visualization</h3>
+              <div className="flex-grow">
+                <PainVisualizer painAreas={currentSymptoms.pain_areas} />
+              </div>
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-purple-700 mb-4">Summary</h3>
+              <SymptomSummary symptoms={currentSymptoms} hideCompleteness={false}/>
+            </div>
           </div>
         </motion.div>
       </div>
       
-      <motion.div 
-        className="mt-8 text-center"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.3 }}
-      >
+      <div className="mt-2">
         <button 
-          onClick={handleContinue}
-          className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-all duration-300 transform hover:-translate-y-1 hover-lift"
+          onClick={addTestData}
+          className="text-xs text-gray-500 underline"
         >
-          Continue to Summary
+          (Load test data)
         </button>
-      </motion.div>
+      </div>
     </div>
   );
 };

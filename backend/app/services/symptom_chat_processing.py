@@ -1,70 +1,174 @@
 from typing import Dict, List, Any, Optional
 import re
+import json
+from json.decoder import JSONDecodeError
 from app.services.llm import LLM
 
-# Initialize the LLM with appropriate system prompts
+
+# First LLM for summarizing symptoms
+symptom_summarizer_llm = LLM(
+    name="symptom_summarizer",
+    system_prompt="""
+    You are a medical assistant specializing in identifying symptoms from conversations.
+    
+    Your task is to extract and summarize the symptoms mentioned by the user into two categories:
+    1. Main symptoms - primary health concerns
+    2. Other symptoms - secondary or related symptoms
+    
+    Guidelines:
+    - Each symptom should be 1-2 words only
+    - Use standardized medical terminology when possible
+    - Focus on the symptoms themselves, not their characteristics
+    - Extract only symptoms explicitly mentioned by the user
+    - For women's health specifically, look for symptoms like:
+      - Pelvic pain
+      - Bloating
+      - Irregular periods
+      - Cramping
+      - Fatigue
+      - Nausea
+      - Headaches
+      - Back pain
+      - Mood changes
+    - If the user claims that she doesn't have other symptoms, set the additional_symptoms to ["no other symptoms"]
+    
+    Format your response as a structured JSON object:
+    ```json
+    {
+      "main_symptoms": ["pelvic pain", "bloating"],
+      "other_symptoms": ["fatigue", "headache"]
+    }
+    ```
+    """
+)
+
+# Modified LLM for detailed symptom extraction
 symptom_extractor_llm = LLM(
     name="symptom_extractor",
     system_prompt="""
-    You are a medical assistant specializing in extracting symptoms from conversations.
+    You are a medical assistant specializing in extracting detailed symptom information from conversations.
     
-    Extract all symptoms mentioned by the user, focusing on:
+    Using both the conversation and the previously identified symptoms, extract detailed information focusing on:
     1. Pain areas (abdomen, head, back, chest, pelvis, leg, arm)
     2. Pain descriptions (sharp, dull, throbbing, burning, cramping)
     3. Pain intensity (on a scale of 1-10)
-    4. Additional symptoms (fever, nausea, vomiting, dizziness, fatigue, bleeding, discharge, swelling, rash, itching)
+    4. Pain frequency (very often, often, sometimes, rarely)
     5. Emotional state (anxious, depressed, frustrated, normal)
+    6. Emotional scale if not normal (1-10)
     
-    Format your response as a structured JSON object without any explanations:
+    Format your response as a structured JSON object with a completeness score:
+    ```json
     {
-        "pain_areas": [
-            {"area": "area_name", "intensity": intensity_value, "description": "description_text"}
-        ],
-        "additional_symptoms": ["symptom1", "symptom2"],
-        "emotional_state": "state_name"
+      "pain_areas": [
+        {"area": "pelvis", "intensity": 7, "frequency": "often", "description": "sharp"}
+      ],
+      "main_symptoms": ["pelvic pain"],
+      "additional_symptoms": ["bloating", "irregular periods"],
+      "emotional_state": "anxious",
+      "emotional_scale": 6,
+      "completeness_score": 70
     }
+    ```
+    The specification of each field is as follows:
+    - pain_areas: a list of pain areas with intensity and frequency extracted from the conversation
+    - main_symptoms: the primary symptoms reported by the user (use the main_symptoms identified in the previous step)
+    - additional_symptoms: secondary symptoms reported by the user (use the other_symptoms identified in the previous step)
+    - emotional_state: the emotional state of the user extracted from the conversation
+    - emotional_scale: the emotional scale of the user extracted from the conversation
+    - completeness_score: the completeness score of the symptom information (0-100)
+    
+    Note:   
+    - If a field is mentioned but not specified (e.g., pain without intensity), use null for that value
+    - If user mentions information that already exists in the JSON object, update the value with the new information
     """
 )
 
-conversation_guide_llm = LLM(
-    name="conversation_guide",
+# LLM specifically for generating responses
+response_generator_llm = LLM(
+    name="response_generator",
     system_prompt="""
     You are a compassionate medical assistant for a women's health application.
     
-    Based on the symptoms the user has shared, respond with empathy and guide them to provide more comprehensive information.
+    Your task is to generate appropriate follow-up questions based on the symptom summary provided.
     
-    If symptoms are incomplete, ask follow-up questions about:
-    1. Location of pain
-    2. Intensity of pain (1-10 scale)
-    3. Quality of pain (sharp, dull, etc.)
-    4. Duration of symptoms
-    5. Associated symptoms
-    6. Emotional impact
+    The summary should include:    
+    1. Pain areas (abdomen, head, back, chest, pelvis, leg, arm)
+    2. Pain descriptions (sharp, dull, throbbing, burning, cramping)
+    3. Pain intensity (on a scale of 1-10)
+    4. Pain frequency (very often, often, sometimes, rarely)
+    5. Symptoms for women's health specifically:
+       - Pelvic pain
+       - Bloating or abdominal swelling
+       - Pain during intercourse
+       - Changes in bowel movements or urinary habits
+       - Irregular menstrual periods
+       - Nausea or vomiting
+       - Lower back pain
+       - Difficulty getting pregnant
+    6. Emotional state (anxious, depressed, frustrated, normal)
+    7. Emotional scale if not normal (1-10)
     
-    Keep your responses concise, supportive, and focused on gathering relevant medical information.
-    If you have enough information, summarize what you understand and ask if there's anything else they'd like to share.
-    You should respond within 2 sentences, and guide the user to provide information step by step.
+    Based on the symptom summary, determine what information is missing and what follow-up question(s) to ask:
+    - Choose the most important 1-2 missing pieces of information to ask about
+    - Be empathetic and supportive in your response
+    - Keep responses concise (2 sentences maximum)
+    - If you have all information needed, summarize and ask if there's anything else
+    - Once all fields are complete and the user has nothing else to add, prompt the user to summarize their symptoms
+    
+    Format your output as follows:
+    ```json
+    {
+      "missing_information": ["pain intensity", "emotional impact"],
+      "is_complete": false,
+      "follow_up_question": "I understand you're experiencing pelvic pain. On a scale of 1-10, how would you rate the intensity of this pain?"
+    }
+    ```
+    
+    If the symptom summary has a completeness score of 80 or higher, you should set "is_complete" to true and ask the user to click the "Estimate Diagnosis" button.
+    Don't ask user to summarize their symptoms again.
     """
 )
 
+# Add this helper function to extract JSON from a markdown-formatted string
+def extract_json_from_markdown(markdown_text):
+    """
+    Extract JSON content from markdown-formatted text that might contain code blocks
+    """
+    import re
+    # Look for content between JSON code blocks
+    json_match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', markdown_text)
+    
+    if json_match:
+        # Return the content inside the code block
+        return json_match.group(1).strip()
+    
+    # If no code blocks found, return the original text (it might be raw JSON)
+    return markdown_text.strip()
+
 def process_conversation(conversation: List[Dict], current_symptoms: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """
-    Process the conversation about symptoms using LLM and guide the user to provide more information if needed.
+    Process the conversation about symptoms using a two-step LLM approach:
+    1. First extract and summarize key symptoms
+    2. Then extract detailed information about those symptoms and generate follow-up
+    
     Returns a response and potentially updated symptom data.
     """
     # Initialize symptoms if not provided
     if current_symptoms is None:
         current_symptoms = {
             "pain_areas": [],
+            "main_symptoms": [],
             "additional_symptoms": [],
-            "emotional_state": None
+            "emotional_state": None,
+            "emotional_scale": None,
+            "completeness_score": 0
         }
     
     # Get the last user message
     last_user_message = None
     for message in reversed(conversation):
-        if message.role == "user":
-            last_user_message = message.content
+        if message["role"] == "user":
+            last_user_message = message["content"]
             break
     
     if not last_user_message:
@@ -75,220 +179,109 @@ def process_conversation(conversation: List[Dict], current_symptoms: Optional[Di
     
     print(f"Last user message: {last_user_message}")
     
-    # Extract symptoms using LLM
     try:
-        # Convert conversation to the format expected by the LLM
-        llm_conversation = [{"role": msg.role, "content": msg.content} for msg in conversation]
-        
-        # Use LLM to extract symptoms
-        extracted_symptoms_json = symptom_extractor_llm.chat(
-            message="Extract symptoms from this conversation.",
-            context=llm_conversation
+        # STEP 1: First identify and summarize the symptoms
+        summary_json_raw = symptom_summarizer_llm.chat(
+            message="Extract and summarize the symptoms from this conversation.",
+            context=conversation
         )
         
-        # Parse the JSON response
-        import json
-        from json.decoder import JSONDecodeError
+        # Clean the response to extract the actual JSON
+        summary_json = extract_json_from_markdown(summary_json_raw)
+        
+        print(f"Symptom Summary Result (cleaned): {summary_json}")
         
         try:
-            extracted_symptoms = json.loads(extracted_symptoms_json)
-            print(f"Extracted symptoms: {extracted_symptoms}")
+            # Parse the symptom summary
+            symptom_summary = json.loads(summary_json)
             
-            # Merge with existing symptoms
-            updated_symptoms = merge_symptoms(current_symptoms, extracted_symptoms)
-        except JSONDecodeError:
-            print(f"Failed to parse LLM response as JSON: {extracted_symptoms_json}")
-            # Fall back to current symptoms if JSON parsing fails
-            updated_symptoms = current_symptoms
+            # STEP 2: Extract detailed information about these symptoms
+            detailed_prompt = f"""
+            Based on the conversation and these previously identified symptoms:
+            {json.dumps(symptom_summary, indent=2)}
+            
+            Extract detailed information about these symptoms including pain areas, intensity, frequency, etc.
+            """
+            
+            symptom_json_raw = symptom_extractor_llm.chat(
+                message=detailed_prompt,
+                context=conversation
+            )
+            
+            # Clean the response to extract the actual JSON
+            symptom_json = extract_json_from_markdown(symptom_json_raw)
+            
+            print(f"Detailed Symptom Extraction Result (cleaned): {symptom_json}")
+            
+            # Parse the extracted detailed symptoms
+            extracted_symptoms = json.loads(symptom_json)
+            
+            # Merge the symptom summary with the detailed extraction
+            # Important: preserve the symptom lists from the first step
+            if "symptoms" in extracted_symptoms and "main_symptoms" not in extracted_symptoms:
+                extracted_symptoms["main_symptoms"] = symptom_summary.get("main_symptoms", [])
+            
+            if "other_symptoms" in symptom_summary and "additional_symptoms" not in extracted_symptoms:
+                extracted_symptoms["additional_symptoms"] = symptom_summary.get("other_symptoms", [])
+            
+            # STEP 3: Generate response based on the extracted symptoms
+            symptoms_summary = json.dumps(extracted_symptoms, indent=2)
+            print(f"Symptoms Summary: {symptoms_summary}")
+            
+            response_json_raw = response_generator_llm.chat(
+                message=f"Generate a response based on this symptom summary:\n{symptoms_summary}",
+                context=None  # No need to send the full conversation, just the symptom summary
+            )
+            
+            # Clean the response to extract the actual JSON
+            response_json = extract_json_from_markdown(response_json_raw)
+            
+            print(f"Response Generation Result (cleaned): {response_json}")
+            
+            # Parse the response
+            response_data = json.loads(response_json)
+            
+            # Get the follow-up question
+            response = response_data.get("follow_up_question", 
+                      "Could you tell me more about your symptoms?")
+            
+            # Update the symptoms based on the extraction
+            updated_symptoms = {
+                "pain_areas": extracted_symptoms.get("pain_areas", current_symptoms["pain_areas"]),
+                
+                # Get main_symptoms directly first, then from symptom_summary, then fallback
+                "main_symptoms": extracted_symptoms.get("main_symptoms", 
+                         symptom_summary.get("main_symptoms",
+                         current_symptoms.get("main_symptoms", []))),
+                
+                # Get additional_symptoms directly first, then from symptom_summary (other_symptoms), then fallback
+                "additional_symptoms": extracted_symptoms.get("additional_symptoms", 
+                              symptom_summary.get("other_symptoms",
+                              current_symptoms.get("additional_symptoms", []))),
+                
+                "emotional_state": extracted_symptoms.get("emotional_state", current_symptoms["emotional_state"]),
+                "emotional_scale": extracted_symptoms.get("emotional_scale", current_symptoms["emotional_scale"]),
+                "completeness_score": extracted_symptoms.get("completeness_score", 0)
+            }
+            
+            return {
+                "response": response,
+                "updated_symptoms": updated_symptoms
+            }
+            
+        except JSONDecodeError as e:
+            print(f"Failed to parse JSON: {str(e)}")
+            print(f"Raw content: {symptom_json}")
+            # Fall back to a generic response if JSON parsing fails
+            return {
+                "response": "I understand you're not feeling well. Could you tell me more specifically about where you're experiencing discomfort?",
+                "updated_symptoms": current_symptoms
+            }
+            
     except Exception as e:
-        print(f"Error extracting symptoms with LLM: {str(e)}")
-        # Fall back to current symptoms if LLM fails
-        updated_symptoms = current_symptoms
-    
-    # Generate response based on the symptoms
-    try:
-        # Prepare symptom summary for the conversation guide
-        symptom_summary = format_symptoms_for_llm(updated_symptoms)
-        
-        # Use LLM to generate response
-        response = conversation_guide_llm.chat(
-            message=f"The user has shared these symptoms: {symptom_summary}\n\nLast message: {last_user_message}\n\nRespond appropriately.",
-            context=llm_conversation
-        )
-        
-        print(f"Agent response: {response}")
-    except Exception as e:
-        print(f"Error generating response with LLM: {str(e)}")
+        print(f"Error processing conversation with LLM: {str(e)}")
         # Fall back to a generic response if LLM fails
-        response = "I understand you're not feeling well. Could you tell me more about your symptoms?"
-    
-    return {
-        "response": response,
-        "updated_symptoms": updated_symptoms
-    }
-
-def merge_symptoms(current_symptoms: Dict[str, Any], new_symptoms: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Merge existing symptoms with newly extracted symptoms
-    """
-    merged = current_symptoms.copy()
-    
-    # Merge pain areas
-    existing_areas = {area.get("area"): area for area in merged["pain_areas"]}
-    for new_area in new_symptoms.get("pain_areas", []):
-        area_name = new_area.get("area")
-        if area_name in existing_areas:
-            # Update existing area if new information is provided
-            if "intensity" in new_area and new_area["intensity"] is not None:
-                existing_areas[area_name]["intensity"] = new_area["intensity"]
-            if "description" in new_area and new_area["description"]:
-                existing_areas[area_name]["description"] = new_area["description"]
-        else:
-            # Add new area
-            merged["pain_areas"].append(new_area)
-    
-    # Merge additional symptoms
-    current_additional = set(merged["additional_symptoms"])
-    new_additional = set(new_symptoms.get("additional_symptoms", []))
-    merged["additional_symptoms"] = list(current_additional.union(new_additional))
-    
-    # Update emotional state if provided
-    if new_symptoms.get("emotional_state"):
-        merged["emotional_state"] = new_symptoms["emotional_state"]
-    
-    return merged
-
-def format_symptoms_for_llm(symptoms: Dict[str, Any]) -> str:
-    """
-    Format symptoms as a readable string for the LLM
-    """
-    parts = []
-    
-    # Format pain areas
-    if symptoms["pain_areas"]:
-        pain_parts = []
-        for area in symptoms["pain_areas"]:
-            description = area.get("description", "pain")
-            intensity = area.get("intensity", "unspecified intensity")
-            pain_parts.append(f"{description} in {area['area']} (intensity: {intensity}/10)")
-        parts.append("Pain: " + ", ".join(pain_parts))
-    
-    # Format additional symptoms
-    if symptoms["additional_symptoms"]:
-        parts.append("Additional symptoms: " + ", ".join(symptoms["additional_symptoms"]))
-    
-    # Format emotional state
-    if symptoms["emotional_state"]:
-        parts.append(f"Emotional state: {symptoms['emotional_state']}")
-    
-    if not parts:
-        return "No symptoms described yet."
-    
-    return "; ".join(parts)
-
-# Keep legacy functions for fallback
-def extract_symptoms(message: str, current_symptoms: Dict[str, Any]) -> Dict[str, Any]:
-    """Legacy function - extract symptom information using regex"""
-    # Implementation remains as a fallback
-    # ... [keep the existing implementation]
-
-def generate_guided_response(symptoms: Dict[str, Any]) -> str:
-    """Legacy function - generate guided response based on symptoms"""
-    # Implementation remains as a fallback
-    # ... [keep the existing implementation]
-
-def extract_symptoms_from_text(text: str, language: str = "en") -> Dict[str, Any]:
-    """
-    Extract symptom information from natural language text
-    
-    In a real implementation, this would use NLP techniques or an LLM
-    to understand symptoms described in natural language.
-    """
-    # This is a simplified mock implementation
-    # In a real app, this would use more sophisticated NLP
-    
-    # Sample keywords to detect
-    pain_keywords = {
-        "abdomen": ["stomach", "belly", "abdominal", "tummy"],
-        "lower back": ["back", "spine", "lumbar"],
-        "pelvis": ["pelvic", "lower abdomen", "groin"],
-        "head": ["headache", "migraine", "temple"]
-    }
-    
-    intensity_keywords = {
-        "mild": 3,
-        "moderate": 5,
-        "severe": 8,
-        "unbearable": 10
-    }
-    
-    symptom_keywords = [
-        "nausea", "vomiting", "dizziness", "fatigue", 
-        "fever", "bleeding", "discharge", "cramps"
-    ]
-    
-    # Simple keyword spotting (very basic approach)
-    found_areas = []
-    for area, keywords in pain_keywords.items():
-        if any(keyword in text.lower() for keyword in keywords):
-            # Default intensity
-            intensity = 5
-            
-            # Check for intensity descriptions
-            for desc, value in intensity_keywords.items():
-                if desc in text.lower():
-                    intensity = value
-                    break
-            
-            found_areas.append({
-                "area": area,
-                "intensity": intensity,
-                "description": "pain" # Default description
-            })
-    
-    # Find additional symptoms
-    additional_symptoms = []
-    for symptom in symptom_keywords:
-        if symptom in text.lower():
-            additional_symptoms.append(symptom)
-    
-    # Detect emotional state based on keywords
-    emotional_state = None
-    if "worried" in text.lower() or "anxious" in text.lower():
-        emotional_state = "😟"
-    elif "sad" in text.lower() or "depressed" in text.lower():
-        emotional_state = "😔"
-    
-    return {
-        "pain_areas": found_areas,
-        "additional_symptoms": additional_symptoms,
-        "emotional_state": emotional_state
-    }
-
-def generate_follow_up_questions(symptoms: Dict[str, Any]) -> List[str]:
-    """
-    Generate follow-up questions based on the symptoms provided
-    
-    In a real implementation, this would be more sophisticated.
-    """
-    questions = []
-    
-    # Ask about duration for each pain area
-    for area in symptoms.get("pain_areas", []):
-        questions.append(f"How long have you had pain in your {area['area']}?")
-    
-    # Ask about triggers
-    if symptoms.get("pain_areas"):
-        questions.append("Does anything make the pain better or worse?")
-    
-    # Ask about related symptoms based on reported symptoms
-    if "nausea" in symptoms.get("additional_symptoms", []):
-        questions.append("Have you experienced any vomiting along with the nausea?")
-    
-    if "bleeding" in symptoms.get("additional_symptoms", []):
-        questions.append("Could you describe the amount and color of the bleeding?")
-    
-    # Always ask about medication
-    questions.append("Have you taken any medication for these symptoms?")
-    
-    return questions[:3]  # Limit to 3 questions to avoid overwhelming the user 
+        return {
+            "response": "I'm sorry, I couldn't process that. Could you describe your symptoms again, focusing on where you feel pain or discomfort?",
+            "updated_symptoms": current_symptoms
+        }

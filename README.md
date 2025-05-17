@@ -96,11 +96,12 @@ Each screen includes:
 4. Changing Clothes
 5. Waiting Room
 6. Doctor Enters
-7. Pelvic Exam (optional, skippable)
-8. Test Results
-9. Pharmacy Info
-10. What to Bring
-11. Closing Encouragement
+7. Blood test
+8. Pelvic Exam (optional, skippable)
+9. Test Results
+10. Pharmacy Info
+11. What to Bring
+12. Closing Encouragement
 
 ---
 
