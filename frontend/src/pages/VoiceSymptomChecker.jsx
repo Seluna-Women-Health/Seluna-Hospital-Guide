@@ -116,6 +116,28 @@ const VoiceSymptomChecker = () => {
     
     console.log("Final formatted symptoms for frontend:", formattedSymptoms);
     setCurrentSymptoms(formattedSymptoms);
+    
+    // Update the global context with the formatted symptoms
+    updateSymptoms({
+      painAreas: formattedSymptoms.pain_areas.map(area => area.area),
+      mainSymptoms: formattedSymptoms.main_symptoms,
+      additionalSymptoms: formattedSymptoms.additional_symptoms,
+      emotionalState: formattedSymptoms.emotional_state,
+      emotionalScale: formattedSymptoms.emotional_scale,
+      completenessScore: formattedSymptoms.completeness_score
+    });
+    
+    // Also update visualization data
+    updateVisualization({
+      painDetails: formattedSymptoms.pain_areas.map(area => ({
+        area: area.area,
+        intensity: area.intensity,
+        frequency: area.frequency,
+        description: area.description
+      })),
+      intensity: Math.max(...formattedSymptoms.pain_areas.map(area => area.intensity), 0),
+      emotion: getEmotionEmoji(formattedSymptoms.emotional_state, formattedSymptoms.emotional_scale)
+    });
   };
   
   // Function to start recording

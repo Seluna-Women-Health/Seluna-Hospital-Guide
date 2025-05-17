@@ -11,130 +11,6 @@ load_dotenv()
 
 router = APIRouter()
 
-class DialogPair(BaseModel):
-    doctor_dialog: str
-    user_guidance: str
-
-class SimulationStep(BaseModel):
-    id: str
-    title: str
-    description: str
-    tips: List[str]
-    image_url: Optional[str] = None
-    audio_url: Optional[str] = None
-    video_url: Optional[str] = None
-    dialog_pairs: List[DialogPair] = []
-    illustration: Optional[str] = None
-
-class SymptomData(BaseModel):
-    symptoms: List[Dict[str, Any]]
-    pain_level: Optional[int] = None
-    pain_location: Optional[str] = None
-    duration: Optional[str] = None
-    additional_notes: Optional[str] = None
-
-# Initialize the LLM service with a medical-focused system prompt
-simulation_llm = LLM(
-    name="simulation_dialog_generator",
-    system_prompt="You are a helpful assistant that generates realistic and compassionate medical dialog and tips for patients visiting a gynecological clinic."
-)
-
-async def generate_dialog_with_llm(step_id: str, step_title: str, step_description: str, symptom_data: Optional[SymptomData] = None) -> Dict:
-    """
-    Use LLM to generate doctor dialog, user guidance, and tips based on the current step and symptom data
-    """
-    # Format symptom information for the prompt
-    symptom_context = ""
-    if symptom_data and symptom_data.symptoms:
-        main_symptoms = ", ".join([s.get("name", "unknown symptom") for s in symptom_data.symptoms[:3]])
-        pain_desc = f" with pain level {symptom_data.pain_level}/10" if symptom_data.pain_level else ""
-        location = f" in the {symptom_data.pain_location}" if symptom_data.pain_location else ""
-        duration = f" for {symptom_data.duration}" if symptom_data.duration else ""
-        
-        symptom_context = f"The patient is experiencing {main_symptoms}{location}{pain_desc}{duration}. "
-        if symptom_data.additional_notes:
-            symptom_context += f"Additional context: {symptom_data.additional_notes}"
-            
-    print("symptom context: ", symptom_context)
-    
-    # Construct prompt based on the current step
-    prompt = f"""
-    Generate realistic doctor-patient dialog and helpful tips for a hospital visit simulation.
-    
-    Current step: {step_title}
-    Step description: {step_description}
-    Step ID: {step_id}
-    
-    {symptom_context}
-    
-    Format your response as JSON with the following structure:
-    {{
-        "dialog_pairs": [
-            {{
-                "doctor_dialog": "What the doctor/healthcare provider might say in this scenario",
-                "user_guidance": "Guidance for how the patient should respond or what to expect"
-            }},
-            {{
-                "doctor_dialog": "A follow-up question or statement from the healthcare provider",
-                "user_guidance": "Further guidance for the patient"
-            }}
-        ],
-        "tips": [
-            "A helpful tip for the patient during this step",
-            "Another practical piece of advice"
-        ]
-    }}
-    
-    Keep the dialog realistic, compassionate, and informative. Include 1-2 dialog pairs and 2-3 tips.
-    IMPORTANT: Return ONLY the JSON object without any markdown formatting (no ```json or ``` markers).
-    """
-    
-    try:
-        # Use the LLM service instead of direct OpenAI calls
-        response_content = simulation_llm.chat(prompt)
-        
-        # Parse and return the response
-        try:
-            # First try direct JSON parsing
-            return json.loads(response_content)
-        except json.JSONDecodeError:
-            # If direct parsing fails, try to extract JSON from markdown code blocks
-            print(f"Error parsing direct JSON. Response starts with: {response_content[:200]}...")
-            
-            # Extract JSON from markdown code blocks if present
-            import re
-            json_match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', response_content)
-            
-            if json_match:
-                json_content = json_match.group(1).strip()
-                try:
-                    return json.loads(json_content)
-                except json.JSONDecodeError:
-                    print(f"Failed to parse extracted JSON: {json_content[:200]}...")
-            
-            # If we still can't extract valid JSON, return fallback
-            return create_fallback_response(step_title)
-            
-    except Exception as e:
-        # Fallback content in case of error
-        print(f"LLM error: {str(e)}")
-        return create_fallback_response(step_title)
-
-def create_fallback_response(step_title: str) -> Dict:
-    """Create a fallback response when LLM fails"""
-    return {
-        "dialog_pairs": [
-            {
-                "doctor_dialog": f"Hello, welcome to the {step_title} stage of your visit.",
-                "user_guidance": f"Listen carefully and follow the guidance for {step_title}."
-            }
-        ],
-        "tips": [
-            f"Be prepared for {step_title}",
-            "Ask questions if anything is unclear"
-        ]
-    }
-
 # Base steps without dialog or tips - these will be filled by the LLM
 BASE_SIMULATION_STEPS = [
     {
@@ -222,6 +98,200 @@ BASE_SIMULATION_STEPS = [
         "illustration": "closing.svg",
     },
 ]
+
+class DialogPair(BaseModel):
+    doctor_dialog: str
+    user_guidance: str
+
+class SimulationStep(BaseModel):
+    id: str
+    title: str
+    description: str
+    tips: List[str]
+    image_url: Optional[str] = None
+    audio_url: Optional[str] = None
+    video_url: Optional[str] = None
+    dialog_pairs: List[DialogPair] = []
+    illustration: Optional[str] = None
+
+class SymptomData(BaseModel):
+    symptoms: List[Dict[str, Any]]
+    pain_level: Optional[int] = None
+    pain_location: Optional[str] = None
+    duration: Optional[str] = None
+    additional_notes: Optional[str] = None
+
+# Initialize the LLM service with a medical-focused system prompt
+simulation_llm = LLM(
+    name="simulation_dialog_generator",
+    system_prompt="You are a helpful assistant that generates realistic and compassionate medical dialog and tips for patients visiting a gynecological clinic."
+)
+
+async def generate_dialog_with_llm(step_id: str, step_title: str, step_description: str, symptom_data: Optional[SymptomData] = None) -> Dict:
+    """
+    Use LLM to generate doctor dialog, user guidance, and tips based on the current step and symptom data
+    """
+    # Format symptom information for the prompt
+    symptom_context = ""
+    if symptom_data and symptom_data.symptoms:
+        main_symptoms = ", ".join([s.get("name", "unknown symptom") for s in symptom_data.symptoms[:3]])
+        pain_desc = f" with pain level {symptom_data.pain_level}/10" if symptom_data.pain_level else ""
+        location = f" in the {symptom_data.pain_location}" if symptom_data.pain_location else ""
+        duration = f" for {symptom_data.duration}" if symptom_data.duration else ""
+        
+        symptom_context = f"The patient is experiencing {main_symptoms}{location}{pain_desc}{duration}. "
+        if symptom_data.additional_notes:
+            symptom_context += f"Additional context: {symptom_data.additional_notes}"
+            
+        # Add emotional context
+        # emotion_status = symptom_data
+            
+    print("symptom context: ", symptom_context)
+
+    # Customize instructions for each step
+    if step_id == "arrival":
+        specific_instructions = """
+Keep it light and welcoming. This step is more about orientation than medical questions.
+Limit dialog pairs to 1. Focus on welcoming tone.
+"""
+    elif step_id == "check-in":
+        specific_instructions = """
+Avoid detailed medical questions. Focus on registration, paperwork, and what the front desk staff might ask.
+Limit to 2-3 dialog pairs and practical tips like ID and insurance card.
+"""
+    elif step_id == "nurse-intake":
+        specific_instructions = """
+Include 3–4 dialog pairs. The nurse collects key health history.
+Questions might include reason for visit, pain level, medical history, and vitals.
+"""
+    elif step_id == "changing-clothes":
+        specific_instructions = """
+No medical questions. Instead, offer reassurance about privacy and choice.
+Use 1 dialog pair max, and 2–3 tips about gown use and personal boundaries.
+"""
+    elif step_id == "waiting-room":
+        specific_instructions = """
+There is no active dialog. Provide calm support and advice on what to expect next.
+Use 0–1 dialog pairs and 2–3 tips for staying relaxed and prepared.
+"""
+    elif step_id == "doctor-enters":
+        specific_instructions = """
+Start of doctor-patient interaction. Use 3–5 dialog pairs: warm greeting, small talk, reason for visit.
+Build trust and introduce the purpose of the visit.
+"""
+    elif step_id == "blood-test":
+        specific_instructions = """
+Use 1–2 dialog pairs. Focus on the nurse/technician explaining the blood test and calming the patient.
+Include tips about hydration and looking away during needle use.
+"""
+    elif step_id == "pelvic-exam":
+        specific_instructions = """
+Use 3–5 dialog pairs. Explain each step with consent and comfort.
+Include specific language about what might happen and that it's optional.
+"""
+    elif step_id == "test-results":
+        specific_instructions = """
+Use 2–3 dialog pairs about receiving results. Doctor explains the findings, next steps, and asks if the patient has questions.
+Include tips for taking notes or asking clarifying questions.
+"""
+    elif step_id == "pharmacy-info":
+        specific_instructions = """
+Use 1–2 dialog pairs. Focus on explaining prescriptions, side effects, and how to ask for help if confused.
+Tips about generic brands and asking the pharmacist questions.
+"""
+    elif step_id == "what-to-bring":
+        specific_instructions = """
+No dialog needed. Just give 3–4 checklist-style tips about what to bring to appointments.
+"""
+    elif step_id == "closing":
+        specific_instructions = """
+Use 1 dialog pair. Doctor or assistant offers encouragement.
+Tips can include reminder to set follow-up and self-care suggestions.
+"""
+    else:
+        specific_instructions = ""
+
+    print("specific instructions: ", specific_instructions)
+    
+    # Construct prompt based on the current step
+    prompt = f"""
+        Generate realistic doctor-patient dialog and helpful tips for a hospital visit simulation.
+
+        Current step: {step_title}
+        Step description: {step_description}
+        Step ID: {step_id}
+        Specific instructions: {specific_instructions}
+        Symptom context: {symptom_context}
+
+        Format your response as JSON with the following structure:
+        {{
+            "dialog_pairs": [
+                {{
+                    "doctor_dialog": "What the doctor/healthcare provider might say in this scenario",
+                    "user_guidance": "Guidance for how the patient should respond or what to expect"
+                }},
+                {{
+                    "doctor_dialog": "A follow-up question or statement from the healthcare provider",
+                    "user_guidance": "Further guidance for the patient"
+                }}
+            ],
+            "tips": [
+                "A helpful tip for the patient during this step",
+                "Another practical piece of advice"
+            ]
+        }}
+
+        Keep the dialog realistic, compassionate, and informative. Depending on the step, adjust the number of dialog pairs (0–5) and tips (1–3).
+        IMPORTANT: Return ONLY the JSON object without any markdown formatting (no ```json or ``` markers).
+        """
+    
+    try:
+        # Use the LLM service instead of direct OpenAI calls
+        response_content = simulation_llm.chat(prompt)
+        
+        # Parse and return the response
+        try:
+            # First try direct JSON parsing
+            return json.loads(response_content)
+        except json.JSONDecodeError:
+            # If direct parsing fails, try to extract JSON from markdown code blocks
+            print(f"Error parsing direct JSON. Response starts with: {response_content[:200]}...")
+            
+            # Extract JSON from markdown code blocks if present
+            import re
+            json_match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', response_content)
+            
+            if json_match:
+                json_content = json_match.group(1).strip()
+                try:
+                    return json.loads(json_content)
+                except json.JSONDecodeError:
+                    print(f"Failed to parse extracted JSON: {json_content[:200]}...")
+            
+            # If we still can't extract valid JSON, return fallback
+            return create_fallback_response(step_title)
+            
+    except Exception as e:
+        # Fallback content in case of error
+        print(f"LLM error: {str(e)}")
+        return create_fallback_response(step_title)
+
+def create_fallback_response(step_title: str) -> Dict:
+    """Create a fallback response when LLM fails"""
+    return {
+        "dialog_pairs": [
+            {
+                "doctor_dialog": f"Hello, welcome to the {step_title} stage of your visit.",
+                "user_guidance": f"Listen carefully and follow the guidance for {step_title}."
+            }
+        ],
+        "tips": [
+            f"Be prepared for {step_title}",
+            "Ask questions if anything is unclear"
+        ]
+    }
+
+
 
 @router.get("/simulation/steps", response_model=List[SimulationStep])
 async def get_simulation_steps(language: str = "en"):
