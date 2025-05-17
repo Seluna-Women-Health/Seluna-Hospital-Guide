@@ -66,14 +66,21 @@ BASE_SIMULATION_STEPS = [
         "id": "pelvic-exam",
         "title": "Pelvic Exam",
         "description": "What happens during a pelvic examination (optional, skippable)",
-        "video_url": "/videos/Ultrasound_Examination_storyboard.mp4",
+        "video_url": "/videos/7_Pelvic Exam.mp4",
         "illustration": "pelvic_exam.svg",
+    },
+    {
+        "id": "chlamydia-test",
+        "title": "Chlamydia Test",
+        "description": "What happens during a chlamydia test procedure",
+        "image_url": "/images/10_Chlamydia Test Instructions_remix.png",
+        "illustration": "chlamydia_test.svg",
     },
     {
         "id": "test-results",
         "title": "Test Results",
         "description": "How test results are shared and explained",
-        "image_url": "/images/3_Diverse-Women-Portrait.png",
+        "image_url": "/images/8_Caring Blood Draw_simple.mp4",
         "illustration": "test_results.svg",
     },
     {
@@ -185,6 +192,11 @@ Use 1–2 dialog pairs. Focus on the nurse/technician explaining the blood test 
 Include tips about hydration and looking away during needle use.
 """
     elif step_id == "pelvic-exam":
+        specific_instructions = """
+Use 3–5 dialog pairs. Explain each step with consent and comfort.
+Include specific language about what might happen and that it's optional.
+"""
+    elif step_id == "chlamydia-test":
         specific_instructions = """
 Use 3–5 dialog pairs. Explain each step with consent and comfort.
 Include specific language about what might happen and that it's optional.

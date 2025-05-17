@@ -248,9 +248,9 @@ const HospitalVisitSimulation = () => {
   const StepIndicator = () => {
     return (
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-center text-purple-600 mb-6">Hospital Visit Simulation</h1>
+        <h1 className="text-4xl font-bold text-center text-purple-600 mb-6">Hospital Visit Simulation</h1>
         
-        <div className="relative flex justify-between items-center max-w-4xl mx-auto">
+        <div className="relative flex justify-between items-center max-w-[1800px] mx-auto">
           {/* Step indicators */}
           {allSteps.map((stepData, index) => {
             const stepNum = index + 1;
@@ -286,13 +286,6 @@ const HospitalVisitSimulation = () => {
             className="absolute h-2 bg-purple-500 left-0 top-1/2 transform -translate-y-1/2 -z-0 transition-all duration-300" 
             style={{ width: `${((step - 1) / (allSteps.length - 1)) * 100}%` }}
           ></div>
-        </div>
-        
-        {/* Step and dialog counter */}
-        <div className="text-right mt-2 text-sm text-gray-600">
-          Step {step} of {allSteps.length} • Dialog {currentDialogIndex + 1} of {
-            loadedStepsContent[allSteps[step - 1]?.id]?.dialogPairs?.length || 0
-          }
         </div>
       </div>
     );
@@ -349,12 +342,10 @@ const HospitalVisitSimulation = () => {
               transition={{ duration: 0.5, delay: 0.2 }}
             >
               <div className="bg-gradient-to-r from-indigo-500 to-purple-500 py-4 px-8">
-                <h2 className="text-2xl font-semibold text-white">{currentContent.title}</h2>
+                <h2 className="text-3xl font-semibold text-white">{currentContent.title}</h2>
               </div>
               
               <div className="p-8">
-                <p className="text-lg text-gray-700 mb-8 max-w-4xl mx-auto">{currentContent.description}</p>
-                
                 <div className="grid grid-cols-1 lg:grid-cols-10 gap-8">
                   {/* Chat section - 4 columns */}
                   <div className="lg:col-span-4 flex flex-col">
@@ -394,14 +385,14 @@ const HospitalVisitSimulation = () => {
                           <div className="flex items-start">
                             <div className="flex-shrink-0 mr-2 mt-1">
                               <div className="bg-yellow-100 p-1 rounded-full">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-yellow-600" viewBox="0 0 20 20" fill="currentColor">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-yellow-600" viewBox="0 0 20 20" fill="currentColor">
                                   <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
                                 </svg>
                               </div>
                             </div>
                             <div className="text-left w-full">
-                              <h3 className="text-xs font-semibold text-yellow-800 uppercase tracking-wide">Pro Tip</h3>
-                              <ul className="text-sm text-yellow-700 space-y-1 mt-1 list-none pl-0">
+                              <h3 className="text-sm font-semibold text-yellow-800 uppercase tracking-wide">Pro Tip</h3>
+                              <ul className="text-base text-yellow-700 space-y-1 mt-1 list-none pl-0">
                                 {currentContent.tips.map((tip, index) => (
                                   <li key={index} className="text-left flex items-start">
                                     <span className="text-amber-600 mr-2 mt-1 flex-shrink-0">•</span>
@@ -455,32 +446,31 @@ const HospitalVisitSimulation = () => {
                   
                   {/* Image/Video section - now 6 columns instead of 4 */}
                   <motion.div 
-                    className="lg:col-span-6 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl overflow-hidden border border-indigo-100 h-[600px] flex items-center justify-center p-6"
+                    className="lg:col-span-6 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl overflow-hidden border border-indigo-100 h-[600px] flex items-center justify-center"
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ duration: 0.5, delay: 0.4 }}
                   >
-                    <div className="w-full h-full bg-white rounded-lg shadow-inner flex items-center justify-center overflow-hidden">
+                    <div className="w-full h-full bg-white flex items-center justify-center overflow-hidden">
                       {currentContent.imageUrl ? (
                         <motion.div
                           initial={{ opacity: 0 }}
                           animate={{ opacity: 1 }}
                           transition={{ duration: 1 }}
-                          className="w-full h-full flex flex-col items-center justify-center"
+                          className="w-full h-full"
                         >
                           <img 
                             src={currentContent.imageUrl} 
                             alt={currentStepData.title}
-                            className="max-w-full max-h-[85%] object-contain mb-4"
+                            className="w-full h-full object-cover"
                           />
-                          <p className="text-xl text-gray-500">Scene: {currentStepData.title}</p>
                         </motion.div>
                       ) : currentContent.videoUrl ? (
                         <motion.div
                           initial={{ opacity: 0 }}
                           animate={{ opacity: 1 }}
                           transition={{ duration: 1 }}
-                          className="w-full h-full flex flex-col items-center justify-center"
+                          className="w-full h-full"
                         >
                           <video 
                             src={currentContent.videoUrl}
@@ -489,9 +479,8 @@ const HospitalVisitSimulation = () => {
                             muted
                             controls
                             onError={(e) => console.error("Video error:", e)}
-                            className="max-w-full max-h-[85%] object-contain mb-4"
+                            className="w-full h-full object-cover"
                           />
-                          <p className="text-xl text-gray-500">Scene: {currentStepData.title}</p>
                         </motion.div>
                       ) : (
                         <motion.div
@@ -501,7 +490,6 @@ const HospitalVisitSimulation = () => {
                           className="text-center"
                         >
                           <div className="text-8xl mb-6">🏥</div>
-                          <p className="text-xl text-gray-500">Scene: {currentStepData.title}</p>
                         </motion.div>
                       )}
                     </div>
@@ -511,11 +499,11 @@ const HospitalVisitSimulation = () => {
             </motion.div>
           )}
           
-          {/* Update the navigation buttons to only navigate between steps */}
-          <div className="flex justify-between max-w-5xl mx-auto">
+          {/* Update the navigation buttons to match card width */}
+          <div className="flex justify-between max-w-[1800px] mx-auto">
             <motion.button 
               onClick={goToPrevStep}
-              className={`py-3 px-6 rounded-lg flex items-center ${
+              className={`py-4 px-12 rounded-lg flex items-center justify-center min-w-[200px] ${
                 step === 1 
                   ? 'bg-gray-300 text-gray-600 cursor-not-allowed' 
                   : 'bg-gradient-to-r from-gray-600 to-gray-700 text-white hover:from-gray-700 hover:to-gray-800'
@@ -524,21 +512,21 @@ const HospitalVisitSimulation = () => {
               whileTap={step !== 1 ? { scale: 0.98 } : {}}
               disabled={step === 1 || loading}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mr-2" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
               </svg>
-              Previous Step
+              Previous
             </motion.button>
             
             <motion.button 
               onClick={goToNextStep}
-              className={`py-3 px-6 bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white font-bold rounded-lg shadow-md flex items-center ${loading ? 'opacity-50 cursor-wait' : ''}`}
+              className={`py-4 px-12 bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white font-bold rounded-lg shadow-md flex items-center justify-center min-w-[200px] ${loading ? 'opacity-50 cursor-wait' : ''}`}
               whileHover={!loading ? { scale: 1.03 } : {}}
               whileTap={!loading ? { scale: 0.98 } : {}}
               disabled={loading}
             >
-              {step === totalSteps ? 'Finish' : 'Next Step'}
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-2" viewBox="0 0 20 20" fill="currentColor">
+              {step === totalSteps ? 'Finish' : 'Next'}
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 ml-2" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
               </svg>
             </motion.button>
